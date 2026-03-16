@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <title>Smart Study Planner · Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body class="glass-bg">
+  <div class="auth-wrapper">
+    <div class="auth-card glass-card">
+      <div class="auth-header">
+        <h1>Smart Study Planner</h1>
+        <p>Focus smarter. Plan intelligently.</p>
+      </div>
+      <div class="tabs">
+        <button class="tab-button active" data-tab="login">Login</button>
+        <button class="tab-button" data-tab="register">Register</button>
+      </div>
+
+      <form id="login-form" class="tab-content active">
+        <label>Email</label>
+        <input type="email" name="email" required />
+        <label>Password</label>
+        <input type="password" name="password" required />
+        <button type="submit" class="primary-btn">Login</button>
+      </form>
+
+      <form id="register-form" class="tab-content">
+        <label>Name</label>
+        <input type="text" name="name" required />
+        <label>Email</label>
+        <input type="email" name="email" required />
+        <label>Password</label>
+        <input type="password" name="password" required />
+        <button type="submit" class="primary-btn">Create account</button>
+      </form>
+
+      <p class="auth-hint">Built with ❤️ for deep focus and effortless planning.</p>
+      <p id="auth-error" class="error-text"></p>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
+

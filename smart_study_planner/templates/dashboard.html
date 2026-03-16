@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <title>Smart Study Planner · Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body class="glass-bg">
+  <div id="focus-overlay" class="focus-overlay hidden">
+    <div class="focus-content glass-card">
+      <h2>Deep Focus Mode</h2>
+      <p id="focus-quote"></p>
+      <div class="timer-display" id="focus-timer-display">25:00</div>
+      <button id="focus-exit" class="secondary-btn">Exit Focus</button>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <aside class="sidebar glass-card" id="sidebar">
+      <div class="sidebar-header">
+        <h1>Smart Study</h1>
+        <p id="user-name"></p>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-section="tasks">Tasks</button>
+        <button class="nav-item" data-section="planner">Weekly Planner</button>
+        <button class="nav-item" data-section="analytics">Analytics</button>
+        <button class="nav-item" data-section="notes">Notes</button>
+        <button class="nav-item" data-section="settings">Settings</button>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="focus-mode-btn" class="ghost-btn">Focus mode</button>
+        <button id="logout-btn" class="ghost-btn">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="top-bar glass-card">
+        <div class="top-left">
+          <h2 id="section-title">Tasks</h2>
+          <p class="subtitle">Plan, prioritize and execute with clarity.</p>
+        </div>
+        <div class="top-right">
+          <div class="pomodoro-widget">
+            <div class="timer-tabs">
+              <button data-mode="focus" class="timer-tab active">Focus</button>
+              <button data-mode="short" class="timer-tab">Short</button>
+              <button data-mode="long" class="timer-tab">Long</button>
+            </div>
+            <div class="timer-display" id="timer-display">25:00</div>
+            <div class="timer-mini">
+              <button id="timer-set-toggle" class="ghost-btn small">Set time</button>
+              <div id="timer-set-panel" class="timer-set-panel hidden">
+                <div class="timer-set-grid">
+                  <div class="timer-set-field">
+                    <label>Focus</label>
+                    <input id="timer-set-focus" type="number" min="10" step="5" />
+                  </div>
+                  <div class="timer-set-field">
+                    <label>Short</label>
+                    <input id="timer-set-short" type="number" min="3" step="1" />
+                  </div>
+                  <div class="timer-set-field">
+                    <label>Long</label>
+                    <input id="timer-set-long" type="number" min="5" step="5" />
+                  </div>
+                </div>
+                <div class="timer-set-actions">
+                  <button id="timer-set-apply" class="secondary-btn small" type="button">Apply</button>
+                </div>
+              </div>
+            </div>
+            <div class="timer-controls">
+              <button id="timer-start" class="primary-btn">Start</button>
+              <button id="timer-pause" class="secondary-btn">Pause</button>
+              <button id="timer-reset" class="ghost-btn">Reset</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section id="section-tasks" class="content-section active">
+        <div class="grid-2">
+          <div class="glass-card">
+            <div class="card-header">
+              <h3>Subjects</h3>
+              <button id="subject-form-toggle" class="ghost-btn small" type="button">Hide</button>
+            </div>
+            <div id="subject-form-panel" class="subject-form-panel">
+              <form id="subject-form" class="subject-form">
+                <input name="name" placeholder="Subject name" required />
+                <div class="subject-color-row">
+                  <label class="inline-label">Color</label>
+                  <input id="subject-color" name="color" type="color" value="#4f46e5" />
+                </div>
+                <div class="color-swatches" id="subject-swatches" aria-label="Quick colors">
+                  <button type="button" class="swatch" data-color="#4f46e5" style="--swatch:#4f46e5"></button>
+                  <button type="button" class="swatch" data-color="#06b6d4" style="--swatch:#06b6d4"></button>
+                  <button type="button" class="swatch" data-color="#22c55e" style="--swatch:#22c55e"></button>
+                  <button type="button" class="swatch" data-color="#f97316" style="--swatch:#f97316"></button>
+                  <button type="button" class="swatch" data-color="#ef4444" style="--swatch:#ef4444"></button>
+                  <button type="button" class="swatch" data-color="#eab308" style="--swatch:#eab308"></button>
+                  <button type="button" class="swatch" data-color="#a855f7" style="--swatch:#a855f7"></button>
+                  <button type="button" class="swatch" data-color="#0ea5e9" style="--swatch:#0ea5e9"></button>
+                </div>
+                <div class="subject-form-actions">
+                  <button class="secondary-btn small" type="submit">Create</button>
+                  <button id="subject-form-cancel" class="ghost-btn small" type="button">Cancel</button>
+                </div>
+              </form>
+            </div>
+            <div id="subjects-list" class="pill-list"></div>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-header">
+              <h3>New task</h3>
+            </div>
+            <form id="task-form" class="form-grid">
+              <input name="title" placeholder="Task title" required />
+              <textarea name="description" placeholder="Details (optional)"></textarea>
+              <div class="field-row">
+                <label>Deadline</label>
+                <input type="datetime-local" name="deadline" />
+              </div>
+              <div class="field-row">
+                <label>Priority</label>
+                <select name="priority">
+                  <option value="1">High</option>
+                  <option value="2" selected>Medium</option>
+                  <option value="3">Low</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label>Duration (min)</label>
+                <input type="number" name="duration_minutes" value="30" min="5" step="5" />
+              </div>
+              <div class="field-row">
+                <label>Subject</label>
+                <select name="subject_id" id="task-subject-select"></select>
+              </div>
+              <button class="primary-btn" type="submit">Add task</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <div class="card-header">
+            <h3>Task list</h3>
+            <button id="ai-schedule-btn" class="ghost-btn small">AI schedule</button>
+          </div>
+          <div id="tasks-list" class="tasks-list"></div>
+        </div>
+      </section>
+
+      <section id="section-planner" class="content-section">
+        <div class="glass-card">
+          <div class="card-header">
+            <h3>Weekly planner</h3>
+            <p class="subtitle">Drag tasks into your week.</p>
+          </div>
+          <div class="planner-grid" id="planner-grid">
+            <!-- columns generated by JS -->
+          </div>
+        </div>
+      </section>
+
+      <section id="section-analytics" class="content-section">
+        <div class="glass-card">
+          <div class="card-header">
+            <h3>Analytics</h3>
+            <p class="subtitle">Understand your study patterns.</p>
+          </div>
+          <div class="grid-3">
+            <div class="metric-card glass-chip">
+              <span class="metric-label">Weekly hours</span>
+              <span id="metric-week-hours" class="metric-value">0</span>
+            </div>
+            <div class="metric-card glass-chip">
+              <span class="metric-label">Task completion</span>
+              <span id="metric-completion" class="metric-value">0%</span>
+            </div>
+            <div class="metric-card glass-chip">
+              <span class="metric-label">Productivity score</span>
+              <span id="metric-score" class="metric-value">0</span>
+            </div>
+          </div>
+          <div class="grid-3">
+            <div class="metric-card glass-chip">
+              <span class="metric-label">Study streak</span>
+              <span id="metric-streak" class="metric-value">0 days</span>
+            </div>
+            <div class="metric-card glass-chip">
+              <span class="metric-label">Focus sessions</span>
+              <span id="metric-focus-count" class="metric-value">0</span>
+            </div>
+            <div class="metric-card glass-chip">
+              <span class="metric-label">Avg focus</span>
+              <span id="metric-focus-avg" class="metric-value">0 min</span>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div>
+              <h4>Daily study hours</h4>
+              <canvas id="chart-daily"></canvas>
+            </div>
+            <div>
+              <h4>Weekly trend</h4>
+              <canvas id="chart-weekly"></canvas>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div>
+              <h4>Subject breakdown</h4>
+              <canvas id="chart-subjects"></canvas>
+            </div>
+            <div>
+              <h4>Insights</h4>
+              <div class="glass-card" style="padding:12px 14px;">
+                <div class="subtitle">Your streak and focus stats update automatically when you complete sessions.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-notes" class="content-section">
+        <div class="glass-card">
+          <div class="card-header">
+            <h3>Quick notes</h3>
+          </div>
+          <form id="note-form" class="form-row">
+            <textarea name="content" placeholder="Capture a thought, formula, or insight..." required></textarea>
+            <select name="task_id" id="note-task-select"></select>
+            <button class="primary-btn" type="submit">Save</button>
+          </form>
+          <div id="notes-list" class="notes-list"></div>
+        </div>
+      </section>
+
+      <section id="section-settings" class="content-section">
+        <div class="glass-card">
+          <div class="card-header">
+            <h3>Personalization</h3>
+          </div>
+          <form id="settings-form" class="form-grid">
+            <div class="field-row">
+              <label>Accent color</label>
+              <input type="color" name="accent_color" id="accent-color-input" />
+            </div>
+            <div class="field-row">
+              <label>Compact mode</label>
+              <input type="checkbox" name="compact_mode" />
+            </div>
+            <div class="field-row">
+              <label>Focus (min)</label>
+              <input type="number" name="focus_minutes" min="10" step="5" />
+            </div>
+            <div class="field-row">
+              <label>Short break (min)</label>
+              <input type="number" name="short_break_minutes" min="3" step="1" />
+            </div>
+            <div class="field-row">
+              <label>Long break (min)</label>
+              <input type="number" name="long_break_minutes" min="5" step="5" />
+            </div>
+            <button class="primary-btn" type="submit">Save settings</button>
+          </form>
+        </div>
+
+        <div class="glass-card">
+          <div class="card-header">
+            <h3>Alarms & reminders</h3>
+            <button id="alarms-clear-btn" class="ghost-btn small" type="button">Clear all</button>
+          </div>
+          <form id="alarm-form" class="form-row">
+            <input name="label" placeholder="Alarm label" required />
+            <input type="time" name="time" required />
+            <button class="secondary-btn" type="submit">Add alarm</button>
+          </form>
+          <div id="alarms-list" class="alarms-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
+
