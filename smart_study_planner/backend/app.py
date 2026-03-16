@@ -14,7 +14,12 @@ from flask import (
     url_for,
 )
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
+
+from smart_study_planner.backend.models.planner_task import define_planner_task_model
+from smart_study_planner.backend.routes.planner import register_planner_routes
+from smart_study_planner.backend.services.analytics import compute_analytics_summary
 
 
 db = SQLAlchemy()
@@ -34,9 +39,26 @@ def create_app() -> Flask:
 
     with app.app_context():
         db.create_all()
+        _ensure_sqlite_schema()
 
     register_routes(app)
     return app
+
+
+def _ensure_sqlite_schema() -> None:
+    """
+    Lightweight SQLite migrations (since create_all doesn't ALTER existing tables).
+    Safe to run on every startup.
+    """
+    try:
+        cols = db.session.execute(text("PRAGMA table_info(user)")).all()
+        existing = {c[1] for c in cols}  # (cid, name, type, notnull, dflt_value, pk)
+        if "theme_mode" not in existing:
+            db.session.execute(text("ALTER TABLE user ADD COLUMN theme_mode VARCHAR(10) DEFAULT 'light'"))
+            db.session.commit()
+    except Exception:
+        # If this fails, Flask will show the real error in logs.
+        db.session.rollback()
 
 
 class User(db.Model):
@@ -49,6 +71,7 @@ class User(db.Model):
     focus_minutes = db.Column(db.Integer, default=25)
     short_break_minutes = db.Column(db.Integer, default=5)
     long_break_minutes = db.Column(db.Integer, default=15)
+    theme_mode = db.Column(db.String(10), default="light")  # light/dark
 
     subjects = db.relationship("Subject", backref="user", lazy=True)
     tasks = db.relationship("Task", backref="user", lazy=True)
@@ -106,6 +129,9 @@ class Alarm(db.Model):
     fired = db.Column(db.Boolean, default=False)
 
 
+PlannerTask = define_planner_task_model(db)
+
+
 def current_user() -> Optional[User]:
     user_id = session.get("user_id")
     if not user_id:
@@ -155,6 +181,17 @@ def serialize_session(sess: StudySession) -> Dict[str, Any]:
         "end_time": sess.end_time.isoformat() if sess.end_time else None,
         "duration_minutes": duration,
     }
+
+
+def stop_any_running_session(user_id: int) -> None:
+    running = StudySession.query.filter_by(user_id=user_id, end_time=None).all()
+    now = dt.datetime.utcnow()
+    changed = False
+    for sess in running:
+        sess.end_time = now
+        changed = True
+    if changed:
+        db.session.commit()
 
 
 def serialize_note(note: Note) -> Dict[str, Any]:
@@ -240,6 +277,8 @@ def register_routes(app: Flask) -> None:
             return redirect(url_for("index"))
         return render_template("login.html")
 
+    register_planner_routes(app, db, PlannerTask, current_user, login_required)
+
     # --- Auth APIs ---
     @app.post("/api/auth/register")
     def api_register():
@@ -297,6 +336,7 @@ def register_routes(app: Flask) -> None:
                 "focus_minutes": user.focus_minutes,
                 "short_break_minutes": user.short_break_minutes,
                 "long_break_minutes": user.long_break_minutes,
+                "theme_mode": user.theme_mode,
             }
         )
 
@@ -312,6 +352,9 @@ def register_routes(app: Flask) -> None:
         user.focus_minutes = int(data.get("focus_minutes", user.focus_minutes))
         user.short_break_minutes = int(data.get("short_break_minutes", user.short_break_minutes))
         user.long_break_minutes = int(data.get("long_break_minutes", user.long_break_minutes))
+        if "theme_mode" in data:
+            mode = str(data.get("theme_mode") or "").lower()
+            user.theme_mode = mode if mode in {"light", "dark"} else user.theme_mode
         db.session.commit()
         return jsonify({"message": "Settings updated"})
 
@@ -445,6 +488,43 @@ def register_routes(app: Flask) -> None:
         db.session.commit()
         return jsonify({"message": "Deleted"})
 
+    # --- Task Study Session Start/Stop ---
+    @app.post("/api/tasks/start/<int:task_id>")
+    @login_required()
+    def api_task_start(task_id: int):
+        user = current_user()
+        task = Task.query.filter_by(id=task_id, user_id=user.id).first()  # type: ignore[arg-type]
+        if not task:
+            return jsonify({"error": "Not found"}), 404
+
+        # Only one running session per user.
+        stop_any_running_session(user.id)
+
+        sess = StudySession(user_id=user.id, task_id=task.id)  # type: ignore[arg-type]
+        db.session.add(sess)
+        db.session.commit()
+        return jsonify({"session": serialize_session(sess)})
+
+    @app.post("/api/tasks/stop/<int:task_id>")
+    @login_required()
+    def api_task_stop(task_id: int):
+        user = current_user()
+        task = Task.query.filter_by(id=task_id, user_id=user.id).first()  # type: ignore[arg-type]
+        if not task:
+            return jsonify({"error": "Not found"}), 404
+
+        sess = (
+            StudySession.query.filter_by(user_id=user.id, task_id=task.id, end_time=None)  # type: ignore[arg-type]
+            .order_by(StudySession.start_time.desc())
+            .first()
+        )
+        if not sess:
+            return jsonify({"error": "No running session for this task"}), 400
+
+        sess.end_time = dt.datetime.utcnow()
+        db.session.commit()
+        return jsonify({"session": serialize_session(sess)})
+
     # --- Weekly Planner drag & drop ---
     @app.post("/api/tasks/<int:task_id>/plan")
     @login_required()
@@ -539,13 +619,19 @@ def register_routes(app: Flask) -> None:
         user = current_user()
         data = request.json or {}
         label = data.get("label")
-        fire_at_str = data.get("fire_at")
-        if not label or not fire_at_str:
-            return jsonify({"error": "Label and fire_at are required"}), 400
+        time_str = data.get("time")
+        if not label or not time_str:
+            return jsonify({"error": "Label and time are required"}), 400
         try:
-            fire_at = dt.datetime.fromisoformat(fire_at_str)
+            parts = time_str.split(":")
+            hour = int(parts[0])
+            minute = int(parts[1]) if len(parts) > 1 else 0
+            now = dt.datetime.now()
+            fire_at = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if fire_at <= now:
+                fire_at = fire_at + dt.timedelta(days=1)
         except Exception:
-            return jsonify({"error": "Invalid datetime format"}), 400
+            return jsonify({"error": "Invalid time format"}), 400
         alarm = Alarm(user_id=user.id, label=label, fire_at=fire_at)  # type: ignore[arg-type]
         db.session.add(alarm)
         db.session.commit()
@@ -569,41 +655,8 @@ def register_routes(app: Flask) -> None:
         user = current_user()
         today = dt.date.today()
         week_ago = today - dt.timedelta(days=6)
-
-        sessions = StudySession.query.filter(
-            StudySession.user_id == user.id,  # type: ignore[arg-type]
-            StudySession.start_time >= dt.datetime.combine(week_ago, dt.time.min),
-        ).all()
-
-        daily_hours: Dict[str, float] = {}
-        subject_breakdown: Dict[str, float] = {}
-
-        for sess in sessions:
-            end = sess.end_time or dt.datetime.utcnow()
-            minutes = (end - sess.start_time).total_seconds() / 60.0
-            day_key = sess.start_time.date().isoformat()
-            daily_hours[day_key] = daily_hours.get(day_key, 0) + minutes / 60.0
-
-            if sess.task and sess.task.subject:
-                name = sess.task.subject.name
-                subject_breakdown[name] = subject_breakdown.get(name, 0) + minutes / 60.0
-
-        total_week_hours = sum(daily_hours.values())
-        completed_tasks = Task.query.filter_by(user_id=user.id, completed=True).count()  # type: ignore[arg-type]
-        total_tasks = Task.query.filter_by(user_id=user.id).count()  # type: ignore[arg-type]
-        completion_rate = (completed_tasks / total_tasks) if total_tasks else 0
-
-        productivity_score = int(min(100, (total_week_hours * 10) + (completion_rate * 40)))
-
-        return jsonify(
-            {
-                "daily_hours": daily_hours,
-                "subject_breakdown": subject_breakdown,
-                "total_week_hours": total_week_hours,
-                "completion_rate": completion_rate,
-                "productivity_score": productivity_score,
-            }
-        )
+        summary = compute_analytics_summary(user.id, StudySession, Task, PlannerTask, week_ago)
+        return jsonify(summary)
 
     # --- AI Scheduler ---
     @app.post("/api/scheduler/suggest")

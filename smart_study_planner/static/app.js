@@ -117,6 +117,7 @@ function applyUserPreferences() {
   if (!state.user || !state.user.id) return;
   qs("#user-name").textContent = state.user.name;
   document.documentElement.style.setProperty("--accent", state.user.accent_color || "#7c3aed");
+  applyTheme(state.user.theme_mode || "light", { persist: false });
   const timerMinutes = {
     focus: state.user.focus_minutes || 25,
     short: state.user.short_break_minutes || 5,
@@ -132,6 +133,17 @@ function applyUserPreferences() {
     settingsForm.long_break_minutes.value = timerMinutes.long;
     settingsForm.compact_mode.checked = !!state.user.compact_mode;
     settingsForm.accent_color.value = state.user.accent_color || "#7c3aed";
+  }
+}
+
+function applyTheme(mode, { persist } = { persist: true }) {
+  const m = (mode || "light").toLowerCase() === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = m;
+  const btn = qs("#theme-toggle-btn");
+  if (btn) btn.textContent = m === "dark" ? "Light mode" : "Dark mode";
+  if (persist) {
+    API.put("/api/settings", { theme_mode: m }).catch(() => {});
+    if (state.user) state.user.theme_mode = m;
   }
 }
 
@@ -179,7 +191,12 @@ async function loadTasks() {
 }
 
 async function loadPlannerTasks() {
-  state.plannerTasks = await API.get("/api/planner/tasks");
+  try {
+    state.plannerTasks = await API.get("/api/planner/tasks");
+  } catch (e) {
+    // If planner routes aren't available (e.g. old server), don't break the whole app.
+    state.plannerTasks = [];
+  }
   renderPlanner();
 }
 
@@ -980,6 +997,13 @@ function initAlarmsExtras() {
   qs("#alarms-clear-btn")?.addEventListener("click", clearAllAlarms);
 }
 
+function initThemeToggle() {
+  qs("#theme-toggle-btn")?.addEventListener("click", () => {
+    const current = document.documentElement.dataset.theme || "light";
+    applyTheme(current === "dark" ? "light" : "dark", { persist: true });
+  });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   if (qs("#login-form")) {
     initAuthPage();
@@ -992,12 +1016,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   initLogout();
   initAlarmsExtras();
   initKeyboardShortcuts();
+  initThemeToggle();
   try {
     await loadInitialData();
   } catch (e) {
     console.error(e);
-    window.location.href = "/login";
-    return;
+    // Avoid redirect loops (e.g. one API temporarily unavailable).
+    alert(e?.message || "Some data failed to load. Try refreshing once.");
   }
   setInterval(pollAlarms, 30_000);
 });
