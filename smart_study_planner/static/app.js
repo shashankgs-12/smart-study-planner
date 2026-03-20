@@ -778,6 +778,14 @@ function initNavigation() {
       qs("#section-title").textContent = section.charAt(0).toUpperCase() + section.slice(1);
       qsa(".content-section").forEach((s) => s.classList.remove("active"));
       qs(`#section-${section}`).classList.add("active");
+
+      // On small screens, close the sidebar after navigation.
+      const sidebar = qs("#sidebar");
+      const backdrop = qs("#sidebar-backdrop");
+      if (sidebar && backdrop && window.matchMedia("(max-width: 768px)").matches) {
+        sidebar.classList.remove("open");
+        backdrop.classList.add("hidden");
+      }
     });
   });
 }
@@ -1004,12 +1012,30 @@ function initThemeToggle() {
   });
 }
 
+function initSidebarToggle() {
+  const toggle = qs("#sidebar-toggle");
+  const sidebar = qs("#sidebar");
+  const backdrop = qs("#sidebar-backdrop");
+  if (!toggle || !sidebar || !backdrop) return;
+
+  toggle.addEventListener("click", () => {
+    const isOpen = sidebar.classList.toggle("open");
+    backdrop.classList.toggle("hidden", !isOpen);
+  });
+
+  backdrop.addEventListener("click", () => {
+    sidebar.classList.remove("open");
+    backdrop.classList.add("hidden");
+  });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   if (qs("#login-form")) {
     initAuthPage();
     return;
   }
   initNavigation();
+  initSidebarToggle();
   initForms();
   initTimerControls();
   initFocusOverlay();

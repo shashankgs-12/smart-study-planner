@@ -17,9 +17,9 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from smart_study_planner.backend.models.planner_task import define_planner_task_model
-from smart_study_planner.backend.routes.planner import register_planner_routes
-from smart_study_planner.backend.services.analytics import compute_analytics_summary
+from models.planner_task import define_planner_task_model
+from routes.planner import register_planner_routes
+from services.analytics import compute_analytics_summary
 
 
 db = SQLAlchemy()
@@ -672,5 +672,5 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
 
