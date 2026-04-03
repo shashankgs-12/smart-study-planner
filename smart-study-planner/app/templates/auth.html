@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ "Register" if mode == "register" else "Login" }} | Smart Study Planner{% endblock %}
+{% block body %}
+  <main class="auth-shell">
+    <section class="auth-showcase">
+      <div class="auth-glow auth-glow-one"></div>
+      <div class="auth-glow auth-glow-two"></div>
+      <div class="auth-copy glass-card">
+        <span class="eyebrow">Smart Study Planner</span>
+        <h1>Liquid-gloss planning for focused study days.</h1>
+        <p>
+          Build momentum with animated scheduling, persistent task timers, subject-based notes,
+          weekly planning, analytics, and elegant focus sessions.
+        </p>
+        <div class="showcase-grid">
+          <article>
+            <strong>Premium Dashboard</strong>
+            <span>Glass cards, glowing charts, and seamless theme switching.</span>
+          </article>
+          <article>
+            <strong>Persistent Study Timers</strong>
+            <span>Pause and resume tasks without losing your real progress.</span>
+          </article>
+          <article>
+            <strong>Weekly Control</strong>
+            <span>Plan Monday to Sunday with a single fluid workspace.</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="auth-panel glass-card">
+      <div class="auth-panel-header">
+        <span class="eyebrow">{{ "Join the planner" if mode == "register" else "Welcome back" }}</span>
+        <h2>{{ "Create your account" if mode == "register" else "Sign in to continue" }}</h2>
+        <p>{{ "Set up your premium study workspace in a minute." if mode == "register" else "Your dashboard, timers, and notes are waiting." }}</p>
+      </div>
+
+      <form method="post" class="auth-form">
+        {% if mode == "register" %}
+          <label class="field">
+            <span>Display Name</span>
+            <input type="text" name="display_name" placeholder="Shashank" required>
+          </label>
+          <label class="field">
+            <span>Username</span>
+            <input type="text" name="username" placeholder="smartscholar" required>
+          </label>
+        {% endif %}
+        <label class="field">
+          <span>Email</span>
+          <input type="email" name="email" placeholder="you@example.com" required>
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" name="password" placeholder="At least 8 characters" required>
+        </label>
+        <button class="button button-primary" type="submit">
+          {{ "Create account" if mode == "register" else "Login" }}
+        </button>
+      </form>
+
+      <p class="auth-switch">
+        {% if mode == "register" %}
+          Already have an account?
+          <a href="{{ url_for('auth.login') }}">Login</a>
+        {% else %}
+          Need an account?
+          <a href="{{ url_for('auth.register') }}">Register</a>
+        {% endif %}
+      </p>
+    </section>
+  </main>
+{% endblock %}

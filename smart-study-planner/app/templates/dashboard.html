@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | Smart Study Planner{% endblock %}
+{% block body %}
+  <div
+    id="app-root"
+    class="app-shell"
+    data-user-name="{{ user.display_name }}"
+    data-initial-theme="{{ settings.mode }}"
+  >
+    <aside class="sidebar glass-card">
+      <div class="sidebar-brand">
+        <div class="brand-mark">
+          <span></span>
+          <span></span>
+        </div>
+        <div>
+          <strong>Smart Study Planner</strong>
+          <small>Premium productivity cockpit</small>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-section="tasks"><span class="nav-icon">◉</span><span>Tasks</span></button>
+        <button class="nav-item" data-section="planner"><span class="nav-icon">◌</span><span>Weekly Planner</span></button>
+        <button class="nav-item" data-section="notes"><span class="nav-icon">◎</span><span>Notes</span></button>
+        <button class="nav-item" data-section="analytics"><span class="nav-icon">◍</span><span>Analytics</span></button>
+        <button class="nav-item" data-section="settings"><span class="nav-icon">◈</span><span>Settings</span></button>
+      </nav>
+
+      <div class="sidebar-secondary">
+        <button id="focus-mode-trigger" class="secondary-item">
+          <span>Focus Mode</span>
+          <strong>Auto Start</strong>
+        </button>
+        <button id="theme-toggle" class="secondary-item">
+          <span>Light / Dark</span>
+          <strong>Toggle Theme</strong>
+        </button>
+        <a href="{{ url_for('auth.logout') }}" class="secondary-item secondary-link">
+          <span>Logout</span>
+          <strong>End Session</strong>
+        </a>
+      </div>
+    </aside>
+
+    <main class="main-stage">
+      <header class="topbar glass-card">
+        <div>
+          <span class="eyebrow">Focused planning</span>
+          <h1>Hello, {{ user.display_name }}.</h1>
+          <p>One dashboard for study sessions, notes, weekly planning, analytics, and reminders.</p>
+        </div>
+        <div class="topbar-actions">
+          <label class="search-shell">
+            <input id="global-search" type="search" placeholder="Search tasks, notes, or plans">
+          </label>
+          <button id="export-button" class="button button-secondary" type="button">Export Data</button>
+          <label class="button button-secondary import-button">
+            Import Data
+            <input id="import-input" type="file" accept="application/json">
+          </label>
+        </div>
+      </header>
+
+      <section class="utility-ribbon">
+        <article class="tool-card glass-card" id="timer-widget">
+          <div class="tool-card-head">
+            <span class="eyebrow">Timer</span>
+            <button data-tool-action="timer-reset" class="icon-button" type="button">Reset</button>
+          </div>
+          <div class="tool-time" data-tool-display="timer">50:00</div>
+          <div class="tool-actions">
+            <button data-tool-action="timer-start" class="button button-primary" type="button">Start</button>
+            <button data-tool-action="timer-pause" class="button button-secondary" type="button">Pause</button>
+          </div>
+          <div class="chip-row">
+            <button class="chip" type="button" data-timer-preset="25">25m</button>
+            <button class="chip" type="button" data-timer-preset="45">45m</button>
+            <button class="chip" type="button" data-timer-preset="50">50m</button>
+            <button class="chip" type="button" data-timer-custom>Custom</button>
+            <button class="chip" type="button" data-timer-auto>Auto-start</button>
+          </div>
+        </article>
+
+        <article class="tool-card glass-card" id="stopwatch-widget">
+          <div class="tool-card-head">
+            <span class="eyebrow">Stopwatch</span>
+            <button data-tool-action="stopwatch-lap" class="icon-button" type="button">Lap</button>
+          </div>
+          <div class="tool-time" data-tool-display="stopwatch">00:00:00</div>
+          <div class="tool-actions">
+            <button data-tool-action="stopwatch-start" class="button button-primary" type="button">Start</button>
+            <button data-tool-action="stopwatch-reset" class="button button-secondary" type="button">Reset</button>
+          </div>
+          <div id="stopwatch-laps" class="lap-list"></div>
+        </article>
+
+        <article class="tool-card glass-card" id="clock-widget">
+          <div class="tool-card-head">
+            <span class="eyebrow">Analog Clock</span>
+            <button class="icon-button" type="button" data-clock-refresh>Sync</button>
+          </div>
+          <div class="analog-clock">
+            <div class="analog-hand hour" id="clock-hour"></div>
+            <div class="analog-hand minute" id="clock-minute"></div>
+            <div class="analog-hand second" id="clock-second"></div>
+            <div class="analog-center"></div>
+            {% for i in range(12) %}
+              <div class="analog-tick" style="transform: translate(-50%, 0) rotate({{ i*30 }}deg);"></div>
+            {% endfor %}
+          </div>
+          <div class="tool-actions">
+            <span id="clock-digital" class="tool-time">00:00</span>
+          </div>
+        </article>
+
+        <article class="tool-card glass-card" id="alarm-widget">
+          <div class="tool-card-head">
+            <span class="eyebrow">Alarm</span>
+            <button id="new-alarm-button" class="icon-button" type="button">Add</button>
+          </div>
+          <div class="tool-subtitle">Multiple alarms, repeat days, sound options.</div>
+          <div id="alarm-preview-list" class="alarm-preview-list"></div>
+        </article>
+      </section>
+
+      <section class="hero-grid">
+        <article class="hero-panel glass-card">
+          <div class="hero-copy">
+            <span class="eyebrow">Progress dashboard</span>
+            <h2>Keep the next session obvious.</h2>
+            <p>Track deadlines, study streaks, and live focus progress without leaving the dashboard.</p>
+          </div>
+          <div class="hero-metrics" id="hero-metrics"></div>
+        </article>
+        <article class="quote-panel glass-card" id="quote-panel"></article>
+      </section>
+
+      <section id="tasks-section" class="section-panel active"></section>
+      <section id="planner-section" class="section-panel"></section>
+      <section id="notes-section" class="section-panel"></section>
+      <section id="analytics-section" class="section-panel"></section>
+      <section id="settings-section" class="section-panel"></section>
+    </main>
+  </div>
+
+  <div id="modal-backdrop" class="modal-backdrop hidden"></div>
+
+  <div id="focus-overlay" class="focus-overlay hidden">
+    <div class="focus-card glass-card">
+      <span class="eyebrow">Focus Mode</span>
+      <h2>Distractions softened. Timer started.</h2>
+      <p id="focus-task-label">Pick a task to lock into a deep session.</p>
+      <div id="focus-countdown" class="focus-countdown">50:00</div>
+      <div class="focus-actions">
+        <button id="focus-break-toggle" class="button button-secondary" type="button">Break</button>
+        <button id="focus-close" class="button button-primary" type="button">Exit Focus</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+  <div id="confirm-dialog" class="confirm-dialog hidden">
+    <div class="confirm-card glass-card">
+      <h3 id="confirm-title">Confirm action</h3>
+      <p id="confirm-message">Are you sure?</p>
+      <div class="confirm-actions">
+        <button id="confirm-cancel" class="button button-secondary" type="button">Cancel</button>
+        <button id="confirm-accept" class="button button-primary" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+{% endblock %}
